@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useRef } from "react";
 
-const WW = 1400, WH = 1000, SPD = 3.5;
+const BASE_WIDTH = 1400, BASE_HEIGHT = 1000, SPD = 3.5;
 
 const CHARS = {
   vivi: { name:"Vivi", color:"#FF1493", hair:"#BB006F", shoe:"#FF69B4", skin:"#FFD5A8", emoji:"👑" },
@@ -36,15 +36,25 @@ const mkWins = (w, h) => {
   return a;
 };
 
-const BLDS = [
+/* Update logic to scale all positions */
+const SCALE_COORDS = (b, scaleX, scaleY) => ({
+  ...b,
+  x: b.x * scaleX,
+  y: b.y * scaleY,
+  w: b.w * scaleX,
+  h: b.h * scaleY,
+  wins: b.wins.map(w => ({ ...w, c: w.c, r: w.r })) // Wins remain unscaled for consistent size
+});
+
+const BLDS = (scaleX, scaleY) => [
   { id:"stadium",    label:"The Stadium",       x:80,   y:68,  w:300, h:225, wall:"#0d0c00", roof:"#201e00", trim:"#FFD700", emoji:"🏟️", screen:"stadium",    tip:"[E] Perform 🎤" },
   { id:"shop",       label:"Half & Half Shop",  x:1020, y:68,  w:310, h:215, wall:"#08001a", roof:"#110026", trim:"#CC66FF", emoji:"🛍️", screen:"shop",       tip:"[E] Shop 🛍️"   },
   { id:"tower",      label:"Penthouse Tower",   x:570,  y:368, w:260, h:255, wall:"#160028", roof:"#240044", trim:"#FF1493", emoji:"🏙️", screen:"penthouse",  tip:"[E] Go home 🏠" },
   { id:"boba",       label:"Boba Shop",         x:80,   y:726, w:190, h:148, wall:"#120900", roof:"#1c1200", trim:"#F4A018", emoji:"🧋", screen:null,         tip:"[E] Get boba 🧋"},
   { id:"restaurant", label:"Fancy Restaurant",  x:1030, y:726, w:290, h:180, wall:"#140700", roof:"#1e0a00", trim:"#FF6B35", emoji:"🍽️", screen:"restaurant", tip:"[E] Work 💼"    },
-].map(b => ({ ...b, wins: mkWins(b.w, b.h) }));
+].map(b => SCALE_COORDS(b, scaleX, scaleY)).map(b => ({ ...b, wins: mkWins(b.w, b.h) }));
 
-const TREES = [
+const TREES = (scaleX, scaleY) => [
   {x:30,y:370},{x:32,y:445},{x:28,y:525},
   {x:1368,y:370},{x:1372,y:445},{x:1368,y:525},
   {x:440,y:96},{x:476,y:142},{x:510,y:96},
@@ -54,7 +64,7 @@ const TREES = [
   {x:700,y:798},{x:740,y:828},{x:678,y:840},
   {x:932,y:745},{x:962,y:772},{x:992,y:748},
   {x:452,y:918},{x:700,y:948},{x:948,y:918},
-];
+].map(t => ({ x: t.x * scaleX, y: t.y * scaleY }));
 
 /* helpers */
 function rrect(ctx, x, y, w, h, r) {
@@ -200,32 +210,34 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       col: ["#FF1493","#1E90FF","#FFD700","#FF69B4","#87CEEB"][Math.floor(Math.random()*5)],
     }));
 
-    function drawGround(ctx, cx, cy, W, H) {
+    function drawGround(ctx, cx, cy, W, H, worldW, worldH, scaleX, scaleY) {
       ctx.fillStyle = "#1c2b1c"; ctx.fillRect(0,0,W,H);
-      const ts = 48, sx = Math.floor(cx/ts)*ts, sy = Math.floor(cy/ts)*ts;
+      const ts = 48 * Math.min(scaleX, scaleY);
+      const sx = Math.floor(cx/ts)*ts, sy = Math.floor(cy/ts)*ts;
       for (let tx = sx; tx < cx+W+ts; tx += ts)
         for (let ty = sy; ty < cy+H+ts; ty += ts) {
           ctx.fillStyle = ((Math.floor(tx/ts)+Math.floor(ty/ts))%2===0) ? "#223422" : "#1c2b1c";
           ctx.fillRect(tx-cx, ty-cy, ts, ts);
         }
       // Central plaza
+      const plazaX = 482*scaleX, plazaY = 290*scaleY, plazaW = 436*scaleX, plazaH = 440*scaleY;
       ctx.fillStyle = "#26263a";
-      ctx.fillRect(482-cx, 290-cy, 436, 440);
+      ctx.fillRect(plazaX-cx, plazaY-cy, plazaW, plazaH);
       // Horizontal road
       ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(0, 606-cy, WW, 82);
+      ctx.fillRect(0, 606*scaleY-cy, W, 82*scaleY);
       // Vertical road
-      ctx.fillRect(678-cx, 0, 84, WH);
+      ctx.fillRect(678*scaleX-cx, 0, 84*scaleX, H);
       // Road dashes
-      ctx.strokeStyle = "#2e2e00"; ctx.setLineDash([26,16]); ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 647-cy); ctx.lineTo(WW, 647-cy); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(720-cx, 0); ctx.lineTo(720-cx, WH); ctx.stroke();
+      ctx.strokeStyle = "#2e2e00"; ctx.setLineDash([26*Math.min(scaleX,scaleY),16*Math.min(scaleX,scaleY)]); ctx.lineWidth = 3*Math.min(scaleX,scaleY);
+      ctx.beginPath(); ctx.moveTo(0, 647*scaleY-cy); ctx.lineTo(W, 647*scaleY-cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(720*scaleX-cx, 0); ctx.lineTo(720*scaleX-cx, H); ctx.stroke();
       ctx.setLineDash([]);
     }
 
-    function drawBuilding(ctx, b, cx, cy) {
-      const x = b.x-cx, y = b.y-cy, D = 14;
-      if (x+b.w+D<0||x>canvas.width||y+b.h<0||y-D>canvas.height) return;
+    function drawBuilding(ctx, b, cx, cy, scaleX, scaleY) {
+      const x = b.x-cx, y = b.y-cy, D = 14 * Math.min(scaleX,scaleY);
+      if (x+b.w+D<0||x>ctx.canvas.width||y+b.h<0||y-D>ctx.canvas.height) return;
       // Isometric top
       ctx.fillStyle = b.roof;
       ctx.beginPath();
@@ -240,51 +252,52 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       ctx.fillStyle = b.wall;
       ctx.fillRect(x, y, b.w, b.h);
       // Glow border
-      ctx.strokeStyle = b.trim; ctx.lineWidth = 2.5;
-      ctx.shadowColor = b.trim; ctx.shadowBlur = 14;
+      ctx.strokeStyle = b.trim; ctx.lineWidth = 2.5 * Math.min(scaleX,scaleY);
+      ctx.shadowColor = b.trim; ctx.shadowBlur = 14 * Math.min(scaleX,scaleY);
       ctx.strokeRect(x+1, y+1, b.w-2, b.h-2);
       ctx.shadowBlur = 0;
       // Windows
-      const cols = Math.max(1, Math.floor((b.w-40)/70));
+      const cols = Math.max(1, Math.floor((b.w-40*scaleX)/(70*scaleX)));
       for (const w of b.wins) {
-        const wx = x + 22 + w.c * ((b.w - 36) / Math.max(1, cols));
-        const wy = y + 22 + w.r * 57;
-        if (wy + 22 < y + b.h - 46) {
+        const wx = x + 22*scaleX + w.c * ((b.w - 36*scaleX) / Math.max(1, cols));
+        const wy = y + 22*scaleY + w.r * 57*scaleY;
+        if (wy + 22*scaleY < y + b.h - 46*scaleY) {
           ctx.fillStyle = w.lit ? b.trim+"38" : b.trim+"12";
-          ctx.fillRect(wx, wy, 26, 20);
-          ctx.strokeStyle = b.trim+"55"; ctx.lineWidth = 1;
-          ctx.strokeRect(wx, wy, 26, 20);
+          ctx.fillRect(wx, wy, 26*scaleX, 20*scaleY);
+          ctx.strokeStyle = b.trim+"55"; ctx.lineWidth = 1 * Math.min(scaleX,scaleY);
+          ctx.strokeRect(wx, wy, 26*scaleX, 20*scaleY);
         }
       }
       // Door
-      const dw = 34, dh = 46;
-      const dx = x + b.w/2 - 17, dy = y + b.h - dh;
+      const dw = 34*scaleX, dh = 46*scaleY;
+      const dx = x + b.w/2 - dw/2, dy = y + b.h - dh;
       ctx.fillStyle = b.trim+"55"; ctx.fillRect(dx, dy, dw, dh);
-      ctx.strokeStyle = b.trim; ctx.lineWidth = 2; ctx.strokeRect(dx, dy, dw, dh);
+      ctx.strokeStyle = b.trim; ctx.lineWidth = 2 * Math.min(scaleX,scaleY); ctx.strokeRect(dx, dy, dw, dh);
       ctx.fillStyle = "#FFD700";
-      ctx.beginPath(); ctx.arc(dx+dw-7, dy+dh/2, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(dx+dw-7*scaleX, dy+dh/2, 3*Math.min(scaleX,scaleY), 0, Math.PI*2); ctx.fill();
       // Label + emoji
-      ctx.shadowColor = b.trim; ctx.shadowBlur = 8;
-      ctx.font = "700 13px Nunito,sans-serif"; ctx.textAlign = "center";
+      ctx.shadowColor = b.trim; ctx.shadowBlur = 8 * Math.min(scaleX,scaleY);
+      ctx.font = `700 ${13*Math.min(scaleX,scaleY)}px Nunito,sans-serif`; ctx.textAlign = "center";
       ctx.fillStyle = "rgba(255,255,255,.88)";
-      ctx.fillText(b.label, x+b.w/2, y+b.h/2+5);
-      ctx.font = "24px serif";
-      ctx.fillText(b.emoji, x+b.w/2, y+26);
+      ctx.fillText(b.label, x+b.w/2, y+b.h/2+5*scaleY);
+      ctx.font = `${24*Math.min(scaleX,scaleY)}px serif`;
+      ctx.fillText(b.emoji, x+b.w/2, y+26*scaleY);
       ctx.shadowBlur = 0;
     }
 
-    function drawTree(ctx, tx, ty, cx, cy) {
+    function drawTree(ctx, tx, ty, cx, cy, scaleX, scaleY) {
       const x = tx-cx, y = ty-cy;
-      if (x<-60||x>canvas.width+60||y<-70||y>canvas.height+50) return;
-      ctx.fillStyle = "#5D4037"; ctx.fillRect(x-4, y, 8, 20);
+      const s = Math.min(scaleX,scaleY);
+      if (x<-60*s||x>ctx.canvas.width+60*s||y<-70*s||y>ctx.canvas.height+50*s) return;
+      ctx.fillStyle = "#5D4037"; ctx.fillRect(x-4*s, y, 8*s, 20*s);
       ctx.fillStyle = "rgba(0,0,0,.28)";
-      ctx.beginPath(); ctx.ellipse(x, y+2, 20, 7, 0, 0, Math.PI*2); ctx.fill();
-      ctx.shadowColor = "#4CAF50"; ctx.shadowBlur = 8;
-      ctx.fillStyle = "#1B5E20"; ctx.beginPath(); ctx.arc(x, y-13, 21, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, y+2*s, 20*s, 7*s, 0, 0, Math.PI*2); ctx.fill();
+      ctx.shadowColor = "#4CAF50"; ctx.shadowBlur = 8*s;
+      ctx.fillStyle = "#1B5E20"; ctx.beginPath(); ctx.arc(x, y-13*s, 21*s, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = "#2E7D32";
-      ctx.beginPath(); ctx.arc(x-9, y-9, 14, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x+9, y-9, 14, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(x, y-20, 12, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x-9*s, y-9*s, 14*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+9*s, y-9*s, 14*s, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(x, y-20*s, 12*s, 0, Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
     }
 
@@ -348,18 +361,19 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       ctx.fillText(ch.name, sx, sy-61+bob);
     }
 
-    function drawPrompt(ctx, W, H, bld) {
+    function drawPrompt(ctx, W, H, bld, scaleX, scaleY) {
       if (!bld) return;
-      ctx.font = "700 13px Nunito,sans-serif"; ctx.textAlign = "center";
-      const tw = ctx.measureText(bld.tip).width + 28;
-      const bx = W/2, by = H-72;
-      rrect(ctx, bx-tw/2, by-17, tw, 32, 8);
+      const s = Math.min(scaleX, scaleY);
+      ctx.font = `700 ${13*s}px Nunito,sans-serif`; ctx.textAlign = "center";
+      const tw = ctx.measureText(bld.tip).width + 28*s;
+      const bx = W/2, by = H-72*s;
+      rrect(ctx, bx-tw/2, by-17*s, tw, 32*s, 8*s);
       ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fill();
-      ctx.shadowColor = bld.trim; ctx.shadowBlur = 12;
-      ctx.strokeStyle = bld.trim; ctx.lineWidth = 2;
-      rrect(ctx, bx-tw/2, by-17, tw, 32, 8);
+      ctx.shadowColor = bld.trim; ctx.shadowBlur = 12*s;
+      ctx.strokeStyle = bld.trim; ctx.lineWidth = 2*s;
+      rrect(ctx, bx-tw/2, by-17*s, tw, 32*s, 8*s);
       ctx.stroke(); ctx.shadowBlur = 0;
-      ctx.fillStyle = "white"; ctx.fillText(bld.tip, bx, by+5);
+      ctx.fillStyle = "white"; ctx.fillText(bld.tip, bx, by+5*s);
     }
 
     function loop() {
@@ -367,24 +381,30 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       const W = canvas.width, H = canvas.height;
+      const scaleX = W / BASE_WIDTH;
+      const scaleY = H / BASE_HEIGHT;
+
+      const currentBLDS = BLDS(scaleX, scaleY);
+      const currentTREES = TREES(scaleX, scaleY);
 
       // Movement
       let dx = 0, dy = 0;
       const k = s.keys;
-      if (k["arrowleft"] || k["a"]) dx -= SPD;
-      if (k["arrowright"]|| k["d"]) dx += SPD;
-      if (k["arrowup"]   || k["w"]) dy -= SPD;
-      if (k["arrowdown"] || k["s"]) dy += SPD;
-      if (s.joy.active) { dx += s.joy.dx*SPD; dy += s.joy.dy*SPD; }
+      const speed = SPD * Math.min(scaleX, scaleY);
+      if (k["arrowleft"] || k["a"]) dx -= speed;
+      if (k["arrowright"]|| k["d"]) dx += speed;
+      if (k["arrowup"]   || k["w"]) dy -= speed;
+      if (k["arrowdown"] || k["s"]) dy += speed;
+      if (s.joy.active) { dx += s.joy.dx*speed; dy += s.joy.dy*speed; }
       if (dx && dy) { dx *= .707; dy *= .707; }
 
-      const nx = Math.max(20, Math.min(WW-20, s.px+dx));
-      const ny = Math.max(20, Math.min(WH-20, s.py+dy));
+      const nx = Math.max(20 * scaleX, Math.min(W - 20 * scaleX, s.px+dx));
+      const ny = Math.max(20 * scaleY, Math.min(H - 20 * scaleY, s.py+dy));
 
       // Collision — block if inside building (except bottom-40px door strip)
       let blocked = false;
-      for (const b of BLDS) {
-        if (nx > b.x && nx < b.x+b.w && ny > b.y && ny < b.y+b.h-40) {
+      for (const b of currentBLDS) {
+        if (nx > b.x && nx < b.x+b.w && ny > b.y && ny < b.y+b.h-40*scaleY) {
           blocked = true; break;
         }
       }
@@ -392,49 +412,51 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       if (dx || dy) s.frame++;
 
       // Camera lerp
-      s.camX += (s.px - W/2 - s.camX) * .12;
-      s.camY += (s.py - H/2 - s.camY) * .12;
-      s.camX = Math.max(0, Math.min(WW-W, s.camX));
-      s.camY = Math.max(0, Math.min(WH-H, s.camY));
+      const worldW = BASE_WIDTH * scaleX;
+      const worldH = BASE_HEIGHT * scaleY;
+      s.camX += (s.px - W / 2 - s.camX) * .12;
+      s.camY += (s.py - H / 2 - s.camY) * .12;
+      s.camX = Math.max(0, Math.min(worldW - W, s.camX));
+      s.camY = Math.max(0, Math.min(worldH - H, s.camY));
 
       // Near-building detection
-      let closest = null, bestD = 82;
-      for (const b of BLDS) {
-        const d = Math.hypot(s.px-(b.x+b.w/2), s.py-(b.y+b.h));
+      let closest = null, bestD = 82 * Math.min(scaleX, scaleY);
+      for (const b of currentBLDS) {
+        const d = Math.hypot(s.px - (b.x + b.w / 2), s.py - (b.y + b.h));
         if (d < bestD) { bestD = d; closest = b; }
       }
       if (s.nearBld?.id !== closest?.id) { s.nearBld = closest; setNearBld(closest); }
 
       // Particles
       for (const p of sparks) {
-        p.x += p.vx; p.y += p.vy; p.life -= p.speed;
-        if (p.life <= 0) { p.x = Math.random()*WW; p.y = WH+10; p.life = .4+Math.random()*.6; }
+        p.x += p.vx * scaleX; p.y += p.vy * scaleY; p.life -= p.speed;
+        if (p.life <= 0) { p.x = Math.random() * worldW; p.y = worldH + 10; p.life = .4 + Math.random() * .6; }
       }
 
       // ── DRAW ─────────────────────────────────────────────────
-      drawGround(ctx, s.camX, s.camY, W, H);
+      drawGround(ctx, s.camX, s.camY, W, H, worldW, worldH, scaleX, scaleY);
 
       // Ambient sparkles
       ctx.save();
       for (const p of sparks) {
-        if (p.x < s.camX-10 || p.x > s.camX+W+10) continue;
+        if (p.x < s.camX - 100 || p.x > s.camX + W + 100) continue;
         ctx.globalAlpha = p.life * .48;
-        ctx.fillStyle = p.col; ctx.shadowColor = p.col; ctx.shadowBlur = 6;
-        ctx.beginPath(); ctx.arc(p.x-s.camX, p.y-s.camY, p.size, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = p.col; ctx.shadowColor = p.col; ctx.shadowBlur = 6 * Math.min(scaleX, scaleY);
+        ctx.beginPath(); ctx.arc(p.x - s.camX, p.y - s.camY, p.size * Math.min(scaleX, scaleY), 0, Math.PI * 2); ctx.fill();
       }
       ctx.restore();
 
       // Depth-sort: buildings + trees + player
       const items = [
-        ...BLDS.map(b => ({ t:"b", d:b, sy:b.y+b.h })),
-        ...TREES.map(t => ({ t:"t", d:t, sy:t.y })),
-        { t:"p", sy:s.py },
+        ...currentBLDS.map(b => ({ t: "b", d: b, sy: b.y + b.h })),
+        ...currentTREES.map(t => ({ t: "t", d: t, sy: t.y })),
+        { t: "p", sy: s.py },
       ].sort((a, b) => a.sy - b.sy);
 
       for (const item of items) {
-        if (item.t === "b") drawBuilding(ctx, item.d, s.camX, s.camY);
-        else if (item.t === "t") drawTree(ctx, item.d.x, item.d.y, s.camX, s.camY);
-        else drawPlayer(ctx, s.px-s.camX, s.py-s.camY, charKey, CHARS[charKey], s.frame);
+        if (item.t === "b") drawBuilding(ctx, item.d, s.camX, s.camY, scaleX, scaleY);
+        else if (item.t === "t") drawTree(ctx, item.d.x, item.d.y, s.camX, s.camY, scaleX, scaleY);
+        else drawPlayer(ctx, s.px - s.camX, s.py - s.camY, charKey, CHARS[charKey], s.frame, scaleX, scaleY);
       }
 
       drawPrompt(ctx, W, H, s.nearBld);
