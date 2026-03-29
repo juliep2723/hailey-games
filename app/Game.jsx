@@ -378,7 +378,7 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
       if (k["arrowright"]|| k["d"]) dx += speed;
       if (k["arrowup"]   || k["w"]) dy -= speed;
       if (k["arrowdown"] || k["s"]) dy += speed;
-      if (s.joy.active) { dx += s.joy.dx*speed; dy += s.joy.dy*speed; }
+      if (s.joy.active && joyId.current !== null) { dx += s.joy.dx*speed; dy += s.joy.dy*speed; }
       if (dx && dy) { dx *= .707; dy *= .707; }
 
       const nx = Math.max(20*scaleX, Math.min(W-20*scaleX, s.px+dx));
@@ -454,9 +454,9 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
     }
   };
   const joyEnd = e => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     S.current.joy = { active:false, dx:0, dy:0 };
-    joyId.current = null; setKnob({ x:50, y:50 });
+    joyId.current = null; setKnob({ x:55, y:55 });
   };
 
   const c = CHARS[charKey] || CHARS.vivi;
@@ -486,7 +486,7 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
           {money >= 5000000 && <div style={{ textAlign:"center", color:"#FFD700", fontWeight:900, fontSize:13, marginTop:4, animation:"pulse 1s infinite" }}>🎉 DIAMOND UNLOCKED! 🎉</div>}
         </div>
       </div>
-      <div onTouchStart={joyStart} onTouchMove={joyMove} onTouchEnd={joyEnd}
+      <div onTouchStart={joyStart} onTouchMove={joyMove} onTouchEnd={joyEnd} onTouchCancel={joyEnd}
         style={{ position:"absolute", bottom:"calc(env(safe-area-inset-bottom, 0px) + 80px)", left:20, width:110, height:110, borderRadius:"50%", background:"rgba(255,255,255,.15)", border:"3px solid rgba(255,255,255,.3)", zIndex:10, touchAction:"none" }}>
         <div style={{ position:"absolute", left:knob.x-18, top:knob.y-18, width:36, height:36, borderRadius:"50%", background:`${c.color}cc`, border:"2px solid white", boxShadow:`0 0 12px ${c.color}`, pointerEvents:"none" }} />
       </div>
