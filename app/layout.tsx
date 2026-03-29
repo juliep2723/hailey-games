@@ -1,6 +1,12 @@
-export const metadata = {
+import type { Metadata, Viewport } from 'next'
+
+export const metadata: Metadata = {
   title: '🌺 Hailey City RP',
   description: 'The Supertwins — Hailey City RP Game',
+}
+
+export const viewport: Viewport = {
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

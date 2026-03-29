@@ -487,15 +487,15 @@ function World({ charKey, money, fans, goScreen, showNotif }) {
         </div>
       </div>
       <div onTouchStart={joyStart} onTouchMove={joyMove} onTouchEnd={joyEnd}
-        style={{ position:"absolute", bottom:44, left:44, width:100, height:100, borderRadius:"50%", background:"rgba(255,255,255,.1)", border:"3px solid rgba(255,255,255,.25)", zIndex:10, touchAction:"none" }}>
+        style={{ position:"absolute", bottom:"calc(env(safe-area-inset-bottom, 0px) + 80px)", left:20, width:110, height:110, borderRadius:"50%", background:"rgba(255,255,255,.15)", border:"3px solid rgba(255,255,255,.3)", zIndex:10, touchAction:"none" }}>
         <div style={{ position:"absolute", left:knob.x-18, top:knob.y-18, width:36, height:36, borderRadius:"50%", background:`${c.color}cc`, border:"2px solid white", boxShadow:`0 0 12px ${c.color}`, pointerEvents:"none" }} />
       </div>
       {nearBld && (
-        <button onClick={() => enterFn.current(nearBld)} style={{ position:"absolute", bottom:44, right:44, width:80, height:80, borderRadius:"50%", background:`${nearBld.trim}bb`, border:`3px solid ${nearBld.trim}`, color:"white", fontWeight:900, fontSize:13, cursor:"pointer", zIndex:10, boxShadow:`0 0 22px ${nearBld.trim}`, animation:"pulse 1s infinite", lineHeight:1.3, touchAction:"none" }}>
+        <button onClick={() => enterFn.current(nearBld)} style={{ position:"absolute", bottom:"calc(env(safe-area-inset-bottom, 0px) + 80px)", right:20, width:90, height:90, borderRadius:"50%", background:`${nearBld.trim}bb`, border:`3px solid ${nearBld.trim}`, color:"white", fontWeight:900, fontSize:14, cursor:"pointer", zIndex:10, boxShadow:`0 0 22px ${nearBld.trim}`, animation:"pulse 1s infinite", lineHeight:1.3, touchAction:"none" }}>
           ENTER
         </button>
       )}
-      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", color:"rgba(255,255,255,.28)", fontSize:10, background:"rgba(0,0,0,.5)", padding:"3px 11px", borderRadius:8, zIndex:10, pointerEvents:"none", whiteSpace:"nowrap" }}>
+      <div style={{ position:"absolute", bottom:"calc(env(safe-area-inset-bottom, 0px) + 56px)", left:"50%", transform:"translateX(-50%)", color:"rgba(255,255,255,.28)", fontSize:10, background:"rgba(0,0,0,.5)", padding:"3px 11px", borderRadius:8, zIndex:10, pointerEvents:"none", whiteSpace:"nowrap" }}>
         WASD / Arrow Keys to walk · E to enter buildings
       </div>
     </div>
